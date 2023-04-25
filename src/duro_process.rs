@@ -189,39 +189,53 @@ impl Compressor {
         {
             const GOLDEN_RATIO: f32 = 1.61803398875;
             const KNEE_WIDTH_DB: f32 = 6.0;
-
-            let coeff_per_sample = 1.0 / (self.sample_rate * 0.001);
+            
+            let coeff_per_sample = 1.0 / self.sample_rate * 1000.0;
+            
+            // Compute attack and release coefficients
             let attack_coeff = (1.0 - (-LN_10 / (self.attack_time_ms as f32 * self.sample_rate)).exp()).powf(coeff_per_sample);
             let release_coeff = (1.0 - (-LN_10 / (self.release_time_ms as f32 * self.sample_rate)).exp()).powf(coeff_per_sample);
-
-
+            
+            // Compute instantaneous gain based on compression curve
             let threshold_lin = 10.0_f32.powf(self.threshold / 20.0);
-            let level_lin = sample.abs();
-    
+            
+            // Compute level from sample
+            let level_lin = if sample < 0.0 {
+                -sample
+            } else {
+                sample
+            };
+            
             let knee_width_lin = 10.0_f32.powf(KNEE_WIDTH_DB / 20.0);
             let mut x = level_lin / threshold_lin;
-    
+            
             // Apply soft knee
             if x.abs() >= 1.0 / knee_width_lin {
                 x = 1.0 + ((x - 1.0) / self.ratio as f32);
             } else {
                 x = (x / knee_width_lin + 1.0 - 1.0 / knee_width_lin).ln() / LN_10 * knee_width_lin + 1.0;
             }
-    
+            
             // Apply compression curve
-            compressed_sample_internal = threshold_lin * x.powf(1.0 / GOLDEN_RATIO).powi(3);
-    
+            let compressed = threshold_lin * x.powf(1.0 / GOLDEN_RATIO);//.powi(3);
+            
+            // Convert back to linear gain
+            let compressed_gain = compressed / level_lin;
+            
             // Compute gain coefficient based on attack and release state
-            let gain_coeff = if compressed_sample_internal >= self.prev_gain {
-                self.attack_coeff
+            let gain_coeff = if compressed_gain >= self.prev_gain {
+                attack_coeff
             } else {
-                self.release_coeff
+                release_coeff
             };
-    
+            
             // Update state with new gain coefficient and previous output level
-            self.prev_gain = gain_coeff * (self.prev_gain - compressed_sample_internal) + compressed_sample_internal;
+            self.prev_gain = gain_coeff * (self.prev_gain - compressed_gain) + compressed_gain;
             self.attack_coeff = attack_coeff;
             self.release_coeff = release_coeff;
+            
+            // Apply gain to original sample
+            compressed_sample_internal = sample * compressed_gain;
         }
 
         match sat_type {
