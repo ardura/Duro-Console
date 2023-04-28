@@ -63,7 +63,7 @@ pub(crate) fn create(
             })
             .col_between(Pixels(140.0))
             .top(Pixels(10.0))
-            .bottom(Pixels(10.0));
+            .bottom(Pixels(5.0));
 
             HStack::new(cx, |cx| 
             {
@@ -85,7 +85,7 @@ pub(crate) fn create(
                 Label::new(cx, "Release");
             })
             .col_between(Pixels(130.0))
-            .bottom(Pixels(10.0));
+            .bottom(Pixels(5.0));
             //.min_width(Pixels(560.0));
 
             HStack::new(cx, |cx| 
@@ -108,7 +108,7 @@ pub(crate) fn create(
                     Label::new(cx, "Dry/Wet");
                 })
                 .col_between(Pixels(120.0))
-                .bottom(Pixels(10.0));
+                .bottom(Pixels(5.0));
 
             HStack::new(cx, |cx| 
                 {

@@ -47,7 +47,7 @@ struct GainParams {
     pub ratio: IntParam,
 
     #[id = "type"]
-    pub sat_type: IntParam,
+    pub sat_type: EnumParam<duro_process::SaturationModeEnum>,
 
     #[id = "attack"]
     pub attack: IntParam,
@@ -56,7 +56,7 @@ struct GainParams {
     pub release: IntParam,
 
     #[id = "compressor_type"]
-    pub compressor_type: IntParam,
+    pub compressor_type: EnumParam<duro_process::ThresholdMode>,
 
     #[id = "output_gain"]
     pub output_gain: FloatParam,
@@ -69,7 +69,7 @@ impl Default for Gain {
     fn default() -> Self {
         Self {
             params: Arc::new(GainParams::default()),
-            compressor:duro_process::Compressor::new(0.0,4,0,0,0,0.0),
+            compressor:duro_process::Compressor::new(0.0,4,0,0,crate::duro_process::ThresholdMode::LINEAR,0.0),
             out_meter_decay_weight: 1.0,
             out_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
             in_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
@@ -148,7 +148,7 @@ impl Default for GainParams {
                 60,
                 IntRange::Linear {
                     min: 1,
-                    max: 120,
+                    max: 2000,
                 },
             )
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
@@ -160,31 +160,17 @@ impl Default for GainParams {
                 30,
                 IntRange::Linear {
                     min: 1,
-                    max: 220,
+                    max: 2000,
                 },
             )
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
             .with_unit(" ms"),
 
             // Compressor Type parameter
-            compressor_type: IntParam::new(
-                "Compressor Type",
-                0,
-                IntRange::Linear {
-                    min: 0,
-                    max: 2,
-                },
-            ),
+            compressor_type: EnumParam::new("name",crate::duro_process::ThresholdMode::LINEAR),
 
-            // Type parameter
-            sat_type: IntParam::new(
-                "sat_type",
-                0,
-                IntRange::Linear {
-                    min: 0,
-                    max: 4,
-                },
-            ),
+            // Saturation Type parameter
+            sat_type: EnumParam::new("name",crate::duro_process::SaturationModeEnum::NONESAT),
 
             // Dry/Wet parameter
             dry_wet: FloatParam::new(
