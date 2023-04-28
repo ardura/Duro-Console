@@ -154,10 +154,10 @@ impl Compressor {
         if compressor_type == crate::duro_process::ThresholdMode::LINEAR
         {
             let coeff_per_sample = 1.0 / (self.sample_rate * 0.001);
-    
+
             // Compute attack and release coefficients
-            let attack_coeff = (1.0 - (-10.0 / (self.attack_time_ms as f32 * 0.001 * self.sample_rate)).exp()).powf(coeff_per_sample);
-            let release_coeff = (1.0 - (-10.0 / (self.release_time_ms as f32 * 0.001 * self.sample_rate)).exp()).powf(coeff_per_sample);
+            let attack_coeff = (1.0 - (-10.0 / (self.attack_time_ms as f32 * self.sample_rate)).exp()).powf(coeff_per_sample);
+            let release_coeff = (1.0 - (-10.0 / (self.release_time_ms as f32 * self.sample_rate)).exp()).powf(coeff_per_sample);
 
             // Compute instantaneous gain based on compression curve
             compressed_sample_internal = sample / self.ratio as f32;
@@ -230,10 +230,10 @@ impl Compressor {
             //let gain_release = f32::exp(-1.0 / (self.sample_rate * self.release_time_ms as f32/1000.0));
 
             let coeff_per_sample = 1.0 / (self.sample_rate * 0.001);
-    
+
             // Compute attack and release coefficients
-            let gain_attack = (1.0 - (-10.0 / (self.attack_time_ms as f32 * 0.001 * self.sample_rate)).exp()).powf(coeff_per_sample);
-            let gain_release = (1.0 - (-10.0 / (self.release_time_ms as f32 * 0.001 * self.sample_rate)).exp()).powf(coeff_per_sample);
+            let gain_attack = (1.0 - (-10.0 / (self.attack_time_ms as f32 * self.sample_rate)).exp()).powf(coeff_per_sample);
+            let gain_release = (1.0 - (-10.0 / (self.release_time_ms as f32 * self.sample_rate)).exp()).powf(coeff_per_sample);
 
             let mut env_out = 0.0;
             let env_in = input_db;
