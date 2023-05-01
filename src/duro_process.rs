@@ -1,5 +1,6 @@
 use nih_plug::{util::{self}, prelude::Enum};
-use std::f32::consts::{LN_2, PI};
+use std::{f32::consts::{LN_2, PI}, cmp::max};
+
 
 #[derive(Enum, PartialEq, Eq, Debug, Copy, Clone)]
 pub enum ThresholdMode {
@@ -35,16 +36,12 @@ fn tape_saturation(input_signal: f32, drive: f32, threshold: f32) -> f32 {
     let transfer = |x: f32| -> f32 {
         (x * drive).tanh() / (threshold * drive).tanh()
     };
-
     // Apply the transfer curve to the input sample
     let output_sample = transfer(input_signal);
-
     // soft clip the output
     let mut normalized_output_sample = output_sample / (1.0 + output_sample.abs());
-
     // Lower this signal because it is LOUDER than the original
     normalized_output_sample *= util::db_to_gain(-12.0);
-
     normalized_output_sample
 }
 
@@ -65,21 +62,19 @@ fn symmetrical_saturate(sample: f32, drive: f32, threshold: f32) -> f32 {
 // Chebyshev polynomial saturation (Thanks to AI help)
 fn chebyshev_tape (sample: f32, drive: f32) -> f32 {
     // saturation limit value
-    let k = 1.0 / (1.0 - drive);
+    //let k = 1.0 / (1.0 - drive);
+    let k = 1.0 / (1.0 + drive);
     // normalized input
     let x = sample * k;
-
     // Calculate the Chebyshev values
     let x2 = x * x;
     let x3 = x * x2;
     let x5 = x3 * x2;
     let x6 = x3 * x3;
-
     let y = x
         - 0.166667 * x3
         + 0.00833333 * x5
         - 0.000198413 * x6;
-
     y / (1.0 + y.abs()) // Soft clip output
 }
 
@@ -91,13 +86,14 @@ fn golden_cubic(sample: f32, threshold: f32) -> f32 {
     let output = if abs_input > threshold {
         let sign = sample.signum();
         let excess = abs_input - threshold;
-        let shaped_excess = golden_ratio * excess.powi(3); // apply cubic function multiplied by golden ratio
+        let shaped_excess = threshold * golden_ratio * excess.powi(3); // apply cubic function multiplied by golden ratio
         sign * (threshold + shaped_excess)
     } else {
         sample
     };
     output
 }
+
 
 /**************************************************
  * Duro Compressor
@@ -129,7 +125,7 @@ impl Compressor {
             ratio,
             attack_time_ms,
             release_time_ms,
-            envelope: 0.0,
+            envelope: 0.0001,
             compressor_type: crate::duro_process::ThresholdMode::LINEAR,
             sample_rate,
             prev_gain: 0.0,
@@ -183,7 +179,7 @@ impl Compressor {
         {
             let sample_db = util::gain_to_db(sample.abs());
             let gain_db = sample_db - self.threshold;
-            let coeff_per_sample = 1.0 / (self.sample_rate * 0.001);
+            let coeff_per_sample = 1.0 / self.sample_rate / 0.001;
     
             // Compute attack and release coefficients
             let attack_rate = (1.0 - (-10.0 / (self.attack_time_ms as f32 * 0.001 * self.sample_rate)).exp()).powf(coeff_per_sample);
@@ -193,19 +189,22 @@ impl Compressor {
             if sample_db > self.envelope {
                 self.envelope = self.envelope * attack_rate + (1.0 - attack_rate) * sample_db;
             } else {
-                self.envelope = self.envelope * release_rate + (1.0 - release_rate) * sample_db;
+                self.envelope = f32::max(self.envelope * release_rate + (1.0 - release_rate) * sample_db, sample_db);
             }
     
             // Compute gain reduction
-            let gain_reduction_db = if self.envelope > self.threshold {
-                self.threshold + (self.envelope - self.threshold) / self.ratio as f32
+            let envelope_db = util::gain_to_db(self.envelope);
+            let gain_reduction_db = if envelope_db > self.threshold {
+                self.threshold + (envelope_db - self.threshold) / self.ratio as f32 - sample_db.max(0.0)
             } else {
-                self.envelope
-            } - sample_db;
+                0.0
+            };
     
             // Apply gain reduction
             let gain_reduction = util::db_to_gain(gain_reduction_db);
             compressed_sample_internal = sample.abs() * gain_reduction * sample.signum();
+            //compressed_sample_internal = sample.signum() * sample.abs().max(0.0) * gain_reduction;
+
         }
         // Golden Cubic Compressor - Harsher Ardura Sound
         else if compressor_type == crate::duro_process::ThresholdMode::GOLDENCUBE
