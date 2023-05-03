@@ -1,11 +1,11 @@
 [package]
-name = "duro_compressor"
+name = "duro_console"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ardura <azviscarra@gmail.com>"]
 license = "GPL-3.0-or-later"
 homepage = "https://github.com/ardura"
-description = "A hard compressor with some flavor"
+description = "A console with saturation focus"
 
 [workspace]
 members = ["xtask"]
@@ -14,7 +14,9 @@ members = ["xtask"]
 crate-type = ["cdylib","lib"]
 
 [dependencies]
+arrayref = "0.3.7"
 atomic_float = "0.1"
+hound = "3.5.0"
 # Remove the `assert_process_allocs` feature to allow allocations on the audio
 # thread in debug builds.
 
@@ -25,6 +27,7 @@ atomic_float = "0.1"
 
 nih_plug = { path = "../nih-plug-master", features = ["assert_process_allocs", "standalone"] }
 nih_plug_vizia = { path = "../nih-plug-master/nih_plug_vizia" }
+rustfft = "6.1.0"
 win_dbg_logger = "0.1.0"
 
 
