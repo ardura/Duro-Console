@@ -823,6 +823,7 @@ version = "0.1.0"
 dependencies = [
  "arrayref",
  "atomic_float",
+ "crossbeam",
  "hound",
  "nih_plug",
  "nih_plug_vizia",

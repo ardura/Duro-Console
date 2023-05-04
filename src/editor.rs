@@ -1,16 +1,18 @@
+//use crossbeam::atomic::AtomicCell;
 use atomic_float::AtomicF32;
 use nih_plug::prelude::{util, Editor};
 use nih_plug_vizia::vizia::prelude::*;
 use nih_plug_vizia::widgets::*;
 use nih_plug_vizia::{assets, create_vizia_editor, ViziaState, ViziaTheming};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::GainParams;
 
-#[derive(Lens)]
+#[derive(Clone, Lens)]
 struct Data {
+    /// Determines which parts of the GUI are visible, and in turn decides the GUI's size.
     params: Arc<GainParams>,
     in_meter: Arc<AtomicF32>,
     out_meter: Arc<AtomicF32>,
@@ -56,33 +58,21 @@ pub(crate) fn create(
             .top(Pixels(10.0))
             .bottom(Pixels(5.0));
                 
-
-            /*
             HStack::new(cx, |cx| 
             {
-                Label::new(cx, "Input");
-                Label::new(cx, "Threshold");
-            })
-            .col_between(Pixels(140.0))
-            .top(Pixels(10.0))
-            .bottom(Pixels(5.0));
-            */
-
-            HStack::new(cx, |cx| 
-            {
-                ParamSlider::new(cx, Data::params, |params| &params.gain);
+                ParamSlider::new(cx, Data::params, |params| &params.free_gain);
                 ParamSlider::new(cx, Data::params, |params| &params.threshold);
             })
             .col_between(Pixels(10.0))
-            .bottom(Pixels(10.0));
+            .bottom(Pixels(5.0));
 
             HStack::new(cx, |cx| 
             {
                 Label::new(cx, "Sat Type");
                 Label::new(cx, "Console Type");
             })
-            .col_between(Pixels(120.0))
-            .bottom(Pixels(5.0));
+            .col_between(Pixels(120.0));
+            //.bottom(Pixels(5.0));
             //.min_width(Pixels(560.0));
 
             HStack::new(cx, |cx| 
@@ -99,7 +89,7 @@ pub(crate) fn create(
                     ParamSlider::new(cx, Data::params, |params| &params.dry_wet);
                 })
                 .col_between(Pixels(10.0))
-                .bottom(Pixels(18.0));
+                .bottom(Pixels(15.0));
 
             VStack::new(cx, |cx| 
             {
@@ -118,12 +108,13 @@ pub(crate) fn create(
                     Some(Duration::from_millis(600)),
                 ).min_width(Pixels(380.0));
             })
-            .child_space(Stretch(1.0));
+            .row_between(Pixels(0.0));
+            //.child_space(Auto);
             
 
         })
-        .row_between(Pixels(0.0))
-        .child_space(Stretch(1.0));
+        .row_between(Pixels(0.0));
+        //.child_space(Stretch(1.0));
         //.child_left(Stretch(1.0))
         //.child_right(Stretch(1.0));
     })

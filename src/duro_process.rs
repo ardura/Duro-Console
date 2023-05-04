@@ -1,6 +1,4 @@
-use std::collections::HashMap;
 extern crate arrayref;
-use arrayref::array_ref;
 
 use nih_plug::{util::{self}, prelude::Enum};
 
@@ -76,23 +74,6 @@ use nih_plug::{util::{self}, prelude::Enum};
 */
 
 //use std::{cmp::max, ops::Mul};
-
-pub fn apply_taps(taps: &[f32], sample: f32) -> f32 {
-    let mut filtered_sample = 0.0;
-    for (tap, zero) in taps.iter().zip(std::iter::repeat(0.0)) {
-        filtered_sample += tap * zero;
-    }
-    return filtered_sample;
-}
-
-fn apply_taps_to_sample(taps: &[f32], sample: f32) -> f32 {
-    let mut taps_rev = taps.iter().rev();
-    let mut output = 0.0;
-    for &tap in taps_rev {
-        output += tap * sample;
-    }
-    output
-}
 
 fn convolve_sample(sample: f32, taps: &[f32], state: &mut [f32]) -> f32 {
     let mut result = 0.0;
@@ -371,9 +352,6 @@ impl Console {
         let mut consoled_sample = 0.0;
         
         // Initialize Feedback Delay Network Processors
-        
-
-
         if console_type == crate::duro_process::ConsoleMode::BYPASS
         {
             // Do nothing
@@ -382,19 +360,20 @@ impl Console {
         // Neve like processing from Airwindows but less dynamic
         else if console_type == crate::duro_process::ConsoleMode::NEVE
         {
+            consoled_sample = sample;
             // Neve console saturation
             //let mut fdn = Fdn::new(NEVE1272_0[0..5].to_vec(), 6);
             //consoled_sample = fdn.process_sample(sample, 1.0);
             //consoled_sample = apply_taps_to_sample(&NEVE1272_0, sample);
-            let mut state = [0.0; NEVE1272_0.len()]; // initialize state buffer with zeroes
-            consoled_sample = convolve_sample(sample, &NEVE1272_0, &mut state);
+            //let mut state: [f32; _] = [0.0; NEVE1272_0.len()]; // initialize state buffer with zeroes
+            //consoled_sample = convolve_sample(sample, &NEVE1272_0, &mut state);
 
         }
         else if console_type == crate::duro_process::ConsoleMode::SOLID {
             //let mut fdn = Fdn::new(SSL383_0[0..5].to_vec(), 6);
             //consoled_sample = fdn.process_sample(sample, 1.0);
-
-            consoled_sample = apply_taps(&SSL383_0[0..33], sample);
+            //let mut state: [f32; _] = [0.0; SSL383_0.len()]; // initialize state buffer with zeroes
+            //consoled_sample = convolve_sample(sample, &SSL383_0[0..33], &mut state);
         }
         // Golden Cubic Compressor - Harsher Ardura Sound
         else if console_type == crate::duro_process::ConsoleMode::GOLDENCUBE

@@ -2,7 +2,7 @@ use atomic_float::AtomicF32;
 use duro_process::Console;
 use nih_plug::{prelude::*};
 use nih_plug_vizia::ViziaState;
-use std::sync::Arc;
+use std::{sync::Arc};
 mod editor;
 mod duro_process;
 
@@ -15,6 +15,7 @@ mod duro_process;
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
 const PEAK_METER_DECAY_MS: f64 = 100.0;
 
+/*
 #[derive(Enum, PartialEq, Eq, Debug, Copy, Clone)]
 pub enum GainInputs {
     #[name = "-6 dB Input Gain"]
@@ -28,6 +29,7 @@ pub enum GainInputs {
     #[name = "+6 dB Input Gain"]
     ADD6,
 }
+*/
 
 pub struct Gain {
     params: Arc<GainParams>,
@@ -50,8 +52,8 @@ struct GainParams {
     #[persist = "editor-state"]
     editor_state: Arc<ViziaState>,
 
-    #[id = "gain"]
-    pub gain: EnumParam<GainInputs>,
+    #[id = "free_gain"]
+    pub free_gain: FloatParam,
 
     #[id = "threshold"]
     pub threshold: FloatParam,
@@ -89,11 +91,20 @@ impl Default for GainParams {
         Self {
             editor_state: editor::default_state(),
 
-            // Input gain parameter
-            gain: EnumParam::new(
+            // Input gain dB parameter (free as in unrestricted nums)
+            free_gain: FloatParam::new(
                 "Input Gain",
-                GainInputs::ZERO,
-            ),
+                util::db_to_gain(0.0),
+                FloatRange::Skewed {
+                    min: util::db_to_gain(-12.0),
+                    max: util::db_to_gain(12.0),
+                    factor: FloatRange::gain_skew_factor(-30.0, 0.0),
+                },
+            )
+            .with_smoother(SmoothingStyle::Logarithmic(50.0))
+            .with_unit(" Input Gain")
+            .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
+            .with_string_to_value(formatters::s2v_f32_gain_to_db()),
 
             // Compressor Ratio Parameter
             drive: FloatParam::new(
@@ -221,7 +232,7 @@ impl Plugin for Gain {
             let mut processed_sample;
             let num_samples = channel_samples.len();
 
-            let gain = self.params.gain.value();
+            let gain = self.params.free_gain.smoothed.next();
             let mut num_gain: f32 = 0.0;
             let drive = self.params.drive.smoothed.next();
             let threshold = self.params.threshold.smoothed.next();
@@ -234,20 +245,29 @@ impl Plugin for Gain {
             self.console.update_vals(threshold,drive,console_type,_context.transport().sample_rate);
 
             for sample in channel_samples {
-                // get the input amplitude here
-                match gain {
-                    GainInputs::SUB6 => num_gain = util::db_to_gain(-6.0),
-                    GainInputs::SUB3 => num_gain = util::db_to_gain(-3.0),
-                    GainInputs::ZERO => num_gain = util::db_to_gain(0.0),
-                    GainInputs::ADD3 => num_gain = util::db_to_gain(3.0),
-                    GainInputs::ADD6 => num_gain = util::db_to_gain(6.0),
-                    _ => num_gain = 0.0,
+                if console_type == crate::duro_process::ConsoleMode::BYPASS
+                {
+                    num_gain = gain;
+                }
+                else {
+                    if gain <= -6.0 {
+                        num_gain = -6.0;
+                    }
+                    else if gain > -6.0 && gain <= -3.0 {
+                        num_gain = -3.0;
+                    }
+                    else if gain > -3.0 && gain <= 0.0 {
+                        num_gain = 0.0;
+                    }
+                    else if gain > 0.0 && gain <= 3.0 {
+                        num_gain = 3.0;
+                    }
+                    else if gain > 3.0 {
+                        num_gain = 6.0;
+                    }
                 }
 
-                if num_gain != 0.0 
-                {
-                    *sample *= num_gain;
-                }
+                *sample *= num_gain;
                 
                 in_amplitude += *sample;
 
