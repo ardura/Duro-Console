@@ -44,16 +44,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'duro_compressor'",
+            "name": "Debug unit tests in library 'duro_console'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=duro_compressor"
+                    "--package=duro_console"
                 ],
                 "filter": {
-                    "name": "duro_compressor",
+                    "name": "duro_console",
                     "kind": "lib"
                 }
             },
@@ -63,15 +63,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'duro_compressor'",
+            "name": "Debug executable 'duro_console'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=duro_compressor",
-                    "--package=duro_compressor"
+                    "--bin=duro_console",
+                    "--package=duro_console"
                 ],
                 "filter": {
-                    "name": "duro_compressor",
+                    "name": "duro_console",
                     "kind": "bin"
                 }
             },
@@ -81,16 +81,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'duro_compressor'",
+            "name": "Debug unit tests in executable 'duro_console'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=duro_compressor",
-                    "--package=duro_compressor"
+                    "--bin=duro_console",
+                    "--package=duro_console"
                 ],
                 "filter": {
-                    "name": "duro_compressor",
+                    "name": "duro_console",
                     "kind": "bin"
                 }
             },

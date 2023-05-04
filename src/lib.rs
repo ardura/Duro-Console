@@ -98,7 +98,7 @@ impl Default for GainParams {
                 FloatRange::Skewed {
                     min: util::db_to_gain(-12.0),
                     max: util::db_to_gain(12.0),
-                    factor: FloatRange::gain_skew_factor(-30.0, 0.0),
+                    factor: FloatRange::gain_skew_factor(-12.0, 12.0),
                 },
             )
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
@@ -225,6 +225,7 @@ impl Plugin for Gain {
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
 
+        //widgets::ParamEvent
         // Buffer level
         for channel_samples in buffer.iter_samples() {
             let mut out_amplitude = 0.0;
@@ -232,7 +233,7 @@ impl Plugin for Gain {
             let mut processed_sample;
             let num_samples = channel_samples.len();
 
-            let gain = self.params.free_gain.smoothed.next();
+            let gain = util::gain_to_db(self.params.free_gain.smoothed.next());
             let mut num_gain: f32 = 0.0;
             let drive = self.params.drive.smoothed.next();
             let threshold = self.params.threshold.smoothed.next();
@@ -256,18 +257,19 @@ impl Plugin for Gain {
                     else if gain > -6.0 && gain <= -3.0 {
                         num_gain = -3.0;
                     }
-                    else if gain > -3.0 && gain <= 0.0 {
+                    else if gain > -3.0 && gain <= 3.0 {
                         num_gain = 0.0;
                     }
-                    else if gain > 0.0 && gain <= 3.0 {
+                    else if gain > 3.0 && gain <= 6.0 {
                         num_gain = 3.0;
                     }
-                    else if gain > 3.0 {
+                    else if gain > 6.0 {
                         num_gain = 6.0;
                     }
                 }
-
-                *sample *= num_gain;
+                //nih_log!("{}  {}",gain,num_gain);
+                
+                *sample *= util::db_to_gain(num_gain);
                 
                 in_amplitude += *sample;
 
