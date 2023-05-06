@@ -1,12 +1,5 @@
 use std::f32::consts::PI;
 use nih_plug::{util::{self}, prelude::Enum, nih_log};
-use rustfft::{FftPlanner, num_complex::Complex, num_traits::Zero};
-use std::f32::consts::SQRT_2;
-
-//TODO:
-// ratio becomes drive (from 0 to 1)
-// attack and release go away
-// reduced goes away
 
 //fn build_hashes() -> (HashMap<i32, [f32; 200]>, HashMap<i32, [f32; 200]>, HashMap<i32, [f32; 200]>, HashMap<i32, [f32; 200]>)
 //{
