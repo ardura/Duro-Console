@@ -17,6 +17,7 @@ crate-type = ["cdylib","lib"]
 arrayref = "0.3.7"
 atomic_float = "0.1"
 crossbeam = "0.8.2"
+dwt = "0.5.2"
 hound = "3.5.0"
 # Remove the `assert_process_allocs` feature to allow allocations on the audio
 # thread in debug builds.
