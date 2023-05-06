@@ -118,6 +118,38 @@ pub fn gen_coefficients(boost_db: f32, sr: f32, bands: Vec<f32>) -> Vec<(f32, f3
 }
 
 pub struct DaubechiesWavelet {
+    coeffs: Vec<f32>,
+}
+
+impl DaubechiesWavelet {
+    pub fn new(order: usize) -> Self {
+        let mut coeffs = vec![0.0; order + 1];
+        let mut a = 1.0;
+        for i in 0..order {
+            coeffs[i] = a as f32;
+            a *= -0.5 * (1.0 + (i as f32) / (order as f32));
+        }
+        coeffs[order] = 1.0;
+        Self { coeffs }
+    }
+
+    pub fn dwt(&self, x: f32) -> (f32, f32) {
+        let (a, b) = (x * self.coeffs[0], x * self.coeffs[1]);
+        (a, b)
+    }
+
+    pub fn idwt(&self, a: f32, b: f32) -> f32 {
+        a * self.coeffs[0] + b * self.coeffs[1]
+    }
+
+    pub fn apply_eq(&self, x: f32, eq: &[f32]) -> f32 {
+        let (a, b) = self.dwt(x);
+        self.idwt(a * eq[0], b * eq[0]) + self.idwt(a * eq[1], b * eq[1])
+    }
+}
+
+/*
+pub struct DaubechiesWavelet {
     coeffs: Vec<f64>,
 }
 
@@ -168,10 +200,10 @@ fn main() {
     let mut eq = vec![0.0; 8]; // define equation as a vector of zeros with a length of 8
     eq[4] = 1.0; // set the value of the equation at index 4 to 1.0 to boost the coefficient at 400 Hz
     let wavelet = DaubechiesWavelet::new(2);
-    let result = wavelet.apply_eq(&signal, &eq);
+    let result = wavelet.apply_eq(signal, &eq);
     println!("{:?}", result);
 }
-
+*/
 
 /**************************************************
  * Saturation Algorithms
@@ -409,6 +441,12 @@ impl Console {
         //let leafboosts: Vec<(f32, f32, f32, f32, f32)> = vec![(0.16666125, -0.3333225, 0.16666125, -1.9998701, 1.0), (0.16660036, -0.33320072, 0.16660036, -1.9984088, 1.0), (0.16612594, -0.33225188, 0.16612594, -1.9870225, 1.0)];
         let leafboosts: Vec<(f32, f32, f32, f32, f32)> = gen_coefficients(12.0,self.sample_rate, vec![80.0,200.0,480.0]);
         if sat_type == SaturationModeEnum::LEAF {
+            let mut eq = vec![0.0; 8]; // define equation as a vector of zeros with a length of 8
+            eq[4] = 1.0; // set the value of the equation at index 4 to 1.0 to boost the coefficient at 400 Hz
+            let wavelet = DaubechiesWavelet::new(2);
+            let result = wavelet.apply_eq(consoled_sample, &eq);
+            consoled_sample = result;
+            /*
             for coeffs in &leafboosts {
                 let (b0, b1, b2, a1, a2) = coeffs;
 
@@ -420,6 +458,7 @@ impl Console {
 
                 consoled_sample += output;
             }
+            */
         }
 
         #[allow(unreachable_patterns)]
