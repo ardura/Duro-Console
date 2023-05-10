@@ -230,27 +230,8 @@ impl Plugin for Gain {
             self.console.update_vals(threshold,drive,console_type,_context.transport().sample_rate);
 
             for sample in channel_samples {
-                if console_type == crate::duro_process::ConsoleMode::BYPASS
-                {
-                    num_gain = gain;
-                }
-                else {
-                    if gain <= -6.0 {
-                        num_gain = -6.0;
-                    }
-                    else if gain > -6.0 && gain <= -3.0 {
-                        num_gain = -3.0;
-                    }
-                    else if gain > -3.0 && gain <= 3.0 {
-                        num_gain = 0.0;
-                    }
-                    else if gain > 3.0 && gain <= 6.0 {
-                        num_gain = 3.0;
-                    }
-                    else if gain > 6.0 {
-                        num_gain = 6.0;
-                    }
-                }
+                num_gain = gain;
+                
                 //nih_log!("{}  {}",gain,num_gain);
                 
                 *sample *= util::db_to_gain(num_gain);
