@@ -96,7 +96,7 @@ impl Default for GainParams {
                 0.0,
                 FloatRange::Linear {
                     min: 0.0,
-                    max: 1.0,
+                    max: 2.0,
                 },
             )
             .with_smoother(SmoothingStyle::Linear(50.0))

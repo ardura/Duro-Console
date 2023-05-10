@@ -14,10 +14,7 @@ members = ["xtask"]
 crate-type = ["cdylib","lib"]
 
 [dependencies]
-arrayref = "0.3.7"
 atomic_float = "0.1"
-crossbeam = "0.8.2"
-hound = "3.5.0"
 # Remove the `assert_process_allocs` feature to allow allocations on the audio
 # thread in debug builds.
 
@@ -28,7 +25,6 @@ hound = "3.5.0"
 
 nih_plug = { path = "../nih-plug-master", features = ["assert_process_allocs", "standalone"] }
 nih_plug_vizia = { path = "../nih-plug-master/nih_plug_vizia" }
-rustfft = "6.1.0"
 win_dbg_logger = "0.1.0"
 
 

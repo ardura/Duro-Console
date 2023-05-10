@@ -2,16 +2,17 @@ use nih_plug::prelude::*;
 
 use duro_console::Gain;
 
-use hound;
+//use hound;
 
 fn main() {
     // pipeline audio IUD impulses from 2007 used to generate the taps in a feedback delay network
-    let path: &str = "D:\\VST_ME\\New folder\\Duro_Compressor\\Pipelineaudio IUD Series Neve_1272\\Neve 1272\\Neve 1272 -20\\0 Neve 1272 -20.wav";
+    //let path: &str = "D:\\VST_ME\\New folder\\Duro_Compressor\\Pipelineaudio IUD Series Neve_1272\\Neve 1272\\Neve 1272 -20\\0 Neve 1272 -20.wav";
     //let path: &str = "D:\\VST_ME\\New folder\\Duro_Compressor\\Pipelineaudio IUD Series Neve_1272\\Neve 1272\\Neve 1272 -50\\0 Neve 1272 -50.wav";
     //let path: &str = "D:\\VST_ME\\New folder\\Duro_Compressor\\Pipelineaudio IUD Series SSL_Logic_FX_G383\\SSL Logic FX G383\\SSL Logic FX G383 Mic Pre Flat\\-6 SSL Logic FX G383 Mic Pre Flat.wav";
     //let path: &str = "D:\\VST_ME\\New folder\\Duro_Compressor\\Pipelineaudio IUD Series dbx160\\dbx\\DBX 160SL Flat\\+6 DBX 160SL Flat.wav";
     //let path: &str = "D:\\VST_ME\\New folder\\Duro_Compressor\\Pipelineaudio IUD Series api\\api\\-3 API 512.wav";
 
+/*
     let mut reader = hound::WavReader::open(path).unwrap();
     let spec = reader.spec();
     let mut sampled_impulse: Vec<f32> = Vec::new();
@@ -25,6 +26,7 @@ fn main() {
                 .collect();
         }
     }
+*/
 
 /*
     // Normalize impulse response
@@ -44,9 +46,5 @@ fn main() {
         }
     }
 */
-    //let sampled_impulse: Vec<f32> = reader.samples::<f32>();//.map(|s| s.unwrap()).collect();
-    println!("STARTING TAP");
-    println!("{:?}", sampled_impulse);
-    println!("ENDING TAP");
     nih_export_standalone::<Gain>();
 }
