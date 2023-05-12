@@ -35,10 +35,6 @@ pub enum SaturationModeEnum {
     TRANSFORMER,
 }
 
-fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    return (1.0 - t) * a + t * b;
-}
-
 /**************************************************
  * EQ Filter Algorithm
  **************************************************/
@@ -162,21 +158,31 @@ fn leaf_saturation(input_signal: f32, threshold: f32, drive: f32) -> f32 {
     (threshold + (1.0 - threshold) * curve) * y
 }
 
-// Transformer saturation based on threshold and ratio
-fn transformer_saturation(sample: f32, threshold: f32, ratio: f32, smoothing_factor: f32) -> f32 {
-    let range = 4.0;
-    let min_value = 0.0;
-    let drive_ratio = min_value + ratio * range;
+// Transformer saturation based on threshold and drive
+fn transformer_saturation(sample: f32, threshold: f32, drive: f32) -> f32 {
+    // take the inverse of drive
+    let shape = 2.0 - (drive * 2.0).min(2.0).max(0.0);
 
-    let clipped_sample = if sample > threshold {
-        sample * drive_ratio
+
+    // Calculate the output gain based on the input level and the threshold, with waveshaping
+    let output_gain = if sample.abs() < threshold {
+        1.0
     } else {
-        sample
+        let gain_reduction = (sample.abs() - threshold) / (1.0 - threshold);
+        let input_gain = 1.0 + (drive - 1.0) * gain_reduction.powf(5.0);
+        let shaped_gain = input_gain.tanh() / shape;
+        shaped_gain.max(0.0).min(drive)
     };
 
-    let smoothed_sample = lerp(sample, clipped_sample, smoothing_factor);
+    // Apply the gain to the input signal and saturate it
+    let output = sample * output_gain;
+    let output = if output.abs() > 1.0 {
+        output.signum()
+    } else {
+        output
+    };
 
-    return smoothed_sample;
+    output
 }
 
 
@@ -554,23 +560,23 @@ impl Console {
             self.vine_array[1] = self.vine_array[0]; 
             self.vine_array[0] = temp_sample * self.drive;
 
-            temp_sample += self.vine_array[1] *  (0.0036325893992795  - (0.000275411073043639*(self.vine_array[1].abs())));
-			temp_sample -= self.vine_array[2] *  (0.0398664344439780  + (0.000201805174100580*(self.vine_array[2].abs())));
+            temp_sample += self.vine_array[1] *  (0.0436325893992795  - (0.000575411073043639*(self.vine_array[1].abs())));
+			temp_sample -= self.vine_array[2] *  (0.0398664344439780  + (0.000401805174100580*(self.vine_array[2].abs())));
 			temp_sample += self.vine_array[3] *  (0.0423995851137356  - (0.000397649382328122*(self.vine_array[3].abs())));
 			temp_sample += self.vine_array[4] *  (0.0510140498581183  - (0.000353184194832542*(self.vine_array[4].abs())));
-			temp_sample -= self.vine_array[5] *  (0.0269342576758843  + (0.000191725137291541*(self.vine_array[5].abs())));
-			temp_sample += self.vine_array[6] *  (0.0201007008556487  - (0.000115534790074162*(self.vine_array[6].abs())));
-			temp_sample -= self.vine_array[7] *  (0.0173217915258955  + (0.000270605983316673*(self.vine_array[7].abs())));
-			temp_sample += self.vine_array[8] *  (0.0187532033895229  - (0.000346928125413722*(self.vine_array[8].abs())));
-			temp_sample -= self.vine_array[9] *  (0.0342323841982068  + (0.000381560773128127*(self.vine_array[9].abs())));
+			temp_sample -= self.vine_array[5] *  (0.0769342576758843  + (0.000291725137291541*(self.vine_array[5].abs())));
+			temp_sample += self.vine_array[6] *  (0.0401007008556487  - (0.000215534790074162*(self.vine_array[6].abs())));
+			temp_sample -= self.vine_array[7] *  (0.0373217915258955  + (0.000270605983316673*(self.vine_array[7].abs())));
+			temp_sample += self.vine_array[8] *  (0.0287532033895229  - (0.000346928125413722*(self.vine_array[8].abs())));
+			temp_sample -= self.vine_array[9] *  (0.0342323841982068  + (0.000481560773128127*(self.vine_array[9].abs())));
 			temp_sample += self.vine_array[10] * (0.0324797624174322  - (0.000259173731735134*(self.vine_array[10].abs())));
 			temp_sample -= self.vine_array[11] * (0.0444824631252694  + (0.000476415778491772*(self.vine_array[11].abs())));
 			temp_sample += self.vine_array[12] * (0.0238301394147183  - (0.000361592576652208*(self.vine_array[12].abs())));
 			temp_sample += self.vine_array[13] * (0.0232701919791822  + (0.000352466711624552*(self.vine_array[13].abs())));
-			temp_sample += self.vine_array[14] * (0.0375055553818633  - (0.000126062074484403*(self.vine_array[14].abs())));
+			temp_sample += self.vine_array[14] * (0.0375055553818633  - (0.000326762074484403*(self.vine_array[14].abs())));
 			temp_sample += self.vine_array[15] * (0.0237069785097524  - (0.000251524844696344*(self.vine_array[15].abs())));
-			temp_sample += self.vine_array[16] * (0.0248529936846194  - (0.000257515009563439*(self.vine_array[16].abs())));
-			temp_sample += self.vine_array[17] * (0.0155616566388069  - (0.000249053764586831*(self.vine_array[17].abs())));
+			temp_sample += self.vine_array[16] * (0.0448529936846194  - (0.000257515409563439*(self.vine_array[16].abs())));
+			temp_sample += self.vine_array[17] * (0.0355616566388069  - (0.000249453764586831*(self.vine_array[17].abs())));
 			temp_sample += self.vine_array[18] * (0.0248772252552266  - (0.000323542566487897*(self.vine_array[18].abs())));
 			temp_sample += self.vine_array[19] * (0.0212456446513081  - (0.000232976462487141*(self.vine_array[19].abs())));
 			temp_sample += self.vine_array[20] * (0.0172523541136474  - (0.000399899365529506*(self.vine_array[20].abs())));
@@ -596,7 +602,7 @@ impl Console {
             // "Leaf" saturation designed by Ardura - wildly inefficient
             SaturationModeEnum::LEAF => return leaf_saturation(consoled_sample, self.threshold, self.drive),
             // Transformer Model
-            SaturationModeEnum::TRANSFORMER => return transformer_saturation(consoled_sample, self.threshold, self.drive,0.7),
+            SaturationModeEnum::TRANSFORMER => return transformer_saturation(consoled_sample, self.threshold, self.drive),
             // Default to no saturation
             _ => return consoled_sample,
         }
