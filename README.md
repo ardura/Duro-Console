@@ -1,6 +1,7 @@
 # Duro Console
 ## Description
 This is a mixture of a saturator and console “emulation” to do some subtle or not-so-subtle processing to audio in a few flavors I really like.
+
 ![duro-console](https://github.com/ardura/Duro-Console/assets/31751444/216d0e01-b56e-4a75-83db-0be617e3d668)
 
 ## Signal Path
