@@ -218,7 +218,7 @@ impl Plugin for Gain {
             let num_samples = channel_samples.len();
 
             let gain = util::gain_to_db(self.params.free_gain.smoothed.next());
-            let mut num_gain: f32 = 0.0;
+            let mut num_gain: f32;
             let drive = self.params.drive.smoothed.next();
             let threshold = self.params.threshold.smoothed.next();
             let output_gain = self.params.output_gain.smoothed.next();
