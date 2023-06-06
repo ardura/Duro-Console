@@ -2,3 +2,8 @@
 *.wav
 *.txt
 *.zip
+.cargo/config
+.vs/Duro_Compressor/*
+*.vsidx
+*.vsidx
+.vs/Duro_Compressor/FileContentIndex/read.lock
