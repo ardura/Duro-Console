@@ -1,9 +1,10 @@
+mod ui_knob;
 use atomic_float::AtomicF32;
-use duro_process::Console;
+use duro_process::{Console, SaturationModeEnum};
 use nih_plug::{prelude::*};
-use nih_plug_vizia::ViziaState;
-use std::{sync::Arc};
-mod editor;
+use nih_plug_egui::{create_egui_editor, egui::{self, mutex::{Mutex}, plot::{Line, PlotPoints, HLine}, Color32, Stroke, Rect, Rounding, pos2}, widgets, EguiState};
+use crate::ui_knob::{ArcKnob, TextSlider};
+use std::{sync::{Arc, atomic::{Ordering}}, fmt::format};
 mod duro_process;
 
 /**************************************************
@@ -11,6 +12,13 @@ mod duro_process;
  * 
  * Build with: cargo xtask bundle duro_console
  * ************************************************/
+
+// GUI Colors
+ const LIGHTTEAL: Color32 = Color32::from_rgb(142, 202, 230);
+ const TEAL: Color32 = Color32::from_rgb(33, 158, 188);
+ const DARKTEAL: Color32 = Color32::from_rgb(2, 48, 71);
+ const MACARONI: Color32 = Color32::from_rgb(255, 183, 3);
+ const ORANGE: Color32 = Color32::from_rgb(251, 133, 0);
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
 const PEAK_METER_DECAY_MS: f64 = 100.0;
@@ -21,7 +29,7 @@ pub struct Gain {
     // normalize the peak meter's response based on the sample rate with this
     out_meter_decay_weight: f32,
 
-    // Compressor class
+    // Console class
     console: Console,
 
     // The current data for the different meters
@@ -34,7 +42,7 @@ struct GainParams {
     /// The editor state, saved together with the parameter state so the custom scaling can be
     /// restored.
     #[persist = "editor-state"]
-    editor_state: Arc<ViziaState>,
+    editor_state: Arc<EguiState>,
 
     #[id = "free_gain"]
     pub free_gain: FloatParam,
@@ -73,7 +81,7 @@ impl Default for Gain {
 impl Default for GainParams {
     fn default() -> Self {
         Self {
-            editor_state: editor::default_state(),
+            editor_state: EguiState::from_size(380, 320),
 
             // Input gain dB parameter (free as in unrestricted nums)
             free_gain: FloatParam::new(
@@ -181,12 +189,52 @@ impl Plugin for Gain {
     }
 
     fn editor(&self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(
-            self.params.clone(),
-            self.in_meter.clone(),
-            self.out_meter.clone(),
-            self.params.editor_state.clone(), 
-        )
+        let mut params = self.params.clone();
+        let in_meter = self.in_meter.clone();
+        let out_meter = self.out_meter.clone();
+        create_egui_editor(
+            self.params.editor_state.clone(),
+            (),
+            |_, _| {},
+            move |egui_ctx, setter, _state| {
+                egui::CentralPanel::default()
+                    .show(egui_ctx, |ui| {
+                        // Change colors - there's probably a better way to do this
+                        let mut style_var = ui.style_mut().clone();
+                        style_var.visuals.widgets.inactive.bg_fill = DARKTEAL;
+
+                        // Assign default colors if user colors not set
+                        style_var.visuals.widgets.inactive.fg_stroke.color = LIGHTTEAL;
+                        style_var.visuals.widgets.noninteractive.fg_stroke.color = Color32::WHITE;
+                        style_var.visuals.widgets.inactive.bg_stroke.color = ORANGE;
+                        style_var.visuals.widgets.active.fg_stroke.color = Color32::LIGHT_RED;
+                        style_var.visuals.widgets.active.bg_stroke.color = TEAL;
+                        style_var.visuals.widgets.open.fg_stroke.color = MACARONI;
+                        // Param fill
+                        style_var.visuals.selection.bg_fill = TEAL;
+
+                        style_var.visuals.widgets.noninteractive.bg_stroke.color = Color32::LIGHT_YELLOW;
+                        style_var.visuals.widgets.noninteractive.bg_fill = Color32::RED;
+
+                        // Trying to draw background as rect
+                        ui.painter().rect_filled(Rect::EVERYTHING, Rounding::none(), DARKTEAL);
+
+                        ui.set_style(style_var);
+
+                        // GUI Structure
+                        ui.horizontal(|ui| {
+                            ui_knob::make_arc_knob(ui, setter, &params.free_gain);
+                            ui_knob::make_arc_knob(ui, setter, &params.sat_type);
+                            ui_knob::make_arc_knob(ui, setter, &params.threshold);
+                            ui_knob::make_arc_knob(ui, setter, &params.drive);
+                            ui_knob::make_arc_knob(ui, setter, &params.console_type);
+                            ui_knob::make_arc_knob(ui, setter, &params.output_gain);
+                            ui_knob::make_arc_knob(ui, setter, &params.dry_wet);
+                            }
+                        )
+                    });
+                }
+            )
     }
 
     fn initialize(
