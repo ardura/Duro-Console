@@ -81,7 +81,7 @@ impl Default for Gain {
 impl Default for GainParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(380, 320),
+            editor_state: EguiState::from_size(800, 160),
 
             // Input gain dB parameter (free as in unrestricted nums)
             free_gain: FloatParam::new(
@@ -223,13 +223,62 @@ impl Plugin for Gain {
 
                         // GUI Structure
                         ui.horizontal(|ui| {
-                            ui_knob::make_arc_knob(ui, setter, &params.free_gain);
-                            ui_knob::make_arc_knob(ui, setter, &params.sat_type);
-                            ui_knob::make_arc_knob(ui, setter, &params.threshold);
-                            ui_knob::make_arc_knob(ui, setter, &params.drive);
-                            ui_knob::make_arc_knob(ui, setter, &params.console_type);
-                            ui_knob::make_arc_knob(ui, setter, &params.output_gain);
-                            ui_knob::make_arc_knob(ui, setter, &params.dry_wet);
+                            let mut gain_knob = ui_knob::ArcKnob::for_param(&params.free_gain, setter, 40.0);
+                            gain_knob.set_center_size(10.0);
+                            gain_knob.set_line_width(20.0);
+                            gain_knob.set_center_to_line_space(0.0);
+                            gain_knob.set_fill_color(Color32::GREEN);
+                            gain_knob.set_line_color(Color32::LIGHT_GRAY);
+                            ui.add(gain_knob);
+
+                            let mut sat_type_knob = ui_knob::ArcKnob::for_param(&params.sat_type, setter, 40.0);
+                            sat_type_knob.set_center_size(20.0);
+                            sat_type_knob.set_line_width(5.0);
+                            sat_type_knob.set_center_to_line_space(10.0);
+                            sat_type_knob.set_fill_color(Color32::GOLD);
+                            sat_type_knob.set_line_color(Color32::RED);
+                            ui.add(sat_type_knob);
+
+                            let mut threshold_knob = ui_knob::ArcKnob::for_param(&params.threshold, setter, 40.0);
+                            threshold_knob.set_center_size(30.0);
+                            threshold_knob.set_line_width(10.0);
+                            threshold_knob.set_center_to_line_space(5.0);
+                            threshold_knob.set_fill_color(Color32::WHITE);
+                            threshold_knob.set_line_color(Color32::YELLOW);
+                            ui.add(threshold_knob);
+
+                            let mut drive_knob = ui_knob::ArcKnob::for_param(&params.drive, setter, 40.0);
+                            drive_knob.set_center_size(5.0);
+                            drive_knob.set_line_width(30.0);
+                            drive_knob.set_center_to_line_space(20.0);
+                            drive_knob.set_fill_color(MACARONI);
+                            drive_knob.set_line_color(ORANGE);
+                            ui.add(drive_knob);
+
+                            let mut console_knob = ui_knob::ArcKnob::for_param(&params.console_type, setter, 40.0);
+                            console_knob.set_center_size(10.0);
+                            console_knob.set_line_width(15.0);
+                            console_knob.set_center_to_line_space(24.0);
+                            console_knob.set_fill_color(TEAL);
+                            console_knob.set_line_color(Color32::LIGHT_GREEN);
+                            ui.add(console_knob);
+
+                            let mut output_knob = ui_knob::ArcKnob::for_param(&params.output_gain, setter, 40.0);
+                            output_knob.set_center_size(10.0);
+                            output_knob.set_line_width(10.0);
+                            output_knob.set_center_to_line_space(10.0);
+                            output_knob.set_fill_color(LIGHTTEAL);
+                            output_knob.set_line_color(TEAL);
+                            output_knob.use_outline(true);
+                            ui.add(output_knob);
+
+                            let mut dry_wet_knob = ui_knob::ArcKnob::for_param(&params.dry_wet, setter, 40.0);
+                            dry_wet_knob.set_center_size(10.0);
+                            dry_wet_knob.set_line_width(15.0);
+                            dry_wet_knob.set_center_to_line_space(24.0);
+                            dry_wet_knob.set_fill_color(TEAL);
+                            dry_wet_knob.set_line_color(Color32::LIGHT_GREEN);
+                            ui.add(dry_wet_knob);
                             }
                         )
                     });
