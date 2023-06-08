@@ -1,14 +1,13 @@
-// ui_knob.rs by a2aaron as part of nyasynth
+// Ardura 2023 - ui_knob.rs - egui + nih-plug parameter widget with customization
+//  this ui_knob.rs is built off a2aaron's knob base as part of nyasynth
 // https://github.com/a2aaron/nyasynth/blob/canon/src/ui_knob.rs
-
-// Updated by Ardura to work with egui layout
 
 use std::{f32::consts::TAU, ops::{Add, Sub, Mul}};
 
-use nih_plug::prelude::{Param, ParamSetter, Enum};
+use nih_plug::prelude::{Param, ParamSetter};
 use nih_plug_egui::egui::{
     epaint::{PathShape, CircleShape}, pos2, Align2, Color32, FontId, Id, Pos2, Rect, Response, Rgba, Sense,
-    Shape, Stroke, Ui, Widget, self, Vec2, vec2,
+    Shape, Stroke, Ui, Widget, self, Vec2,
 };
 use once_cell::sync::Lazy;
 
@@ -140,36 +139,37 @@ impl<'a, P: Param> ArcKnob<'a, P> {
 
     pub fn preset_style(&mut self, style_id: KnobStyle)
     {
+        // These are all calculated off radius to scale better
         match style_id {
             KnobStyle::SmallTogether => {
-                self.center_size = 10.0;
-                self.line_width = 20.0;
+                self.center_size = self.radius / 4.0;
+                self.line_width = self.radius / 2.0;
                 self.center_to_line_space = 0.0;
             }
             KnobStyle::MediumThin => {
-                self.center_size = 20.0;
-                self.line_width = 5.0;
-                self.center_to_line_space = 10.0;
+                self.center_size = self.radius / 2.0;
+                self.line_width = self.radius / 8.0;
+                self.center_to_line_space = self.radius / 4.0;
             }
             KnobStyle::LargeMedium => {
-                self.center_size = 30.0;
-                self.line_width = 10.0;
-                self.center_to_line_space = 5.0;
+                self.center_size = self.radius / 1.333;
+                self.line_width = self.radius / 4.0;
+                self.center_to_line_space = self.radius / 8.0;
             }
             KnobStyle::SmallLarge => {
-                self.center_size = 5.0;
-                self.line_width = 30.0;
-                self.center_to_line_space = 20.0;
+                self.center_size = self.radius / 8.0;
+                self.line_width = self.radius / 1.333;
+                self.center_to_line_space = self.radius / 2.0;
             }
             KnobStyle::SmallMedium => {
-                self.center_size = 10.0;
-                self.line_width = 15.0;
-                self.center_to_line_space = 24.0;
+                self.center_size = self.radius / 4.0;
+                self.line_width = self.radius / 2.666;
+                self.center_to_line_space = self.radius / 1.666;
             }
             KnobStyle::SmallSmallOutline => {
-                self.center_size = 10.0;
-                self.line_width = 10.0;
-                self.center_to_line_space = 10.0;
+                self.center_size = self.radius / 4.0;
+                self.line_width = self.radius / 4.0;
+                self.center_to_line_space = self.radius / 4.0;
                 self.outline = true;
             }
         }

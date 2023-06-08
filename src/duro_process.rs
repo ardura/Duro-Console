@@ -9,6 +9,8 @@ pub enum ConsoleMode {
     LEAF,
     #[name = "Vine Console"]
     VINE,
+    #[name = "Duro Console"]
+    DURO,
     #[name = "Neve Inspired"]
     NEVE,
     #[name = "API Inspired"]
@@ -19,11 +21,19 @@ pub enum ConsoleMode {
 
 #[derive(Enum, PartialEq, Eq, Debug, Copy, Clone)]
 pub enum SaturationModeEnum {
-    #[name = "None"]
+    #[name = "No Saturation"]
     NONESAT,
-    #[name = "\"Tape\""]
+    #[name = "Tape Saturation"]
     TAPESAT,
-    #[name = "\"Digital\" Clip"]
+    #[name = "Odd Harmonics"]
+    ODDHARMONICS,
+    #[name = "Even Harmonics"]
+    EVENHARMONICS,
+    #[name = "Low End Drive"]
+    LOWENDDRIVE,
+    #[name = "Candle"]
+    CANDLE,
+    #[name = "Digital Clip"]
     DIGITAL,
     #[name = "Chebyshev"]
     CHEBYSHEV,
@@ -144,6 +154,65 @@ fn golden_cubic(sample: f32, threshold: f32, drive: f32) -> f32
     temp
 }
 
+// Add 5 odd harmonics to the signal at a strength
+fn odd_saturation(signal: f32, harmonic_strength: f32) -> f32 {
+    let num_harmonics: usize = 5;
+    let time = signal;
+    let mut summed = time;
+    
+    for j in 1..=num_harmonics {
+        let harmonic = (2 * j - 1) as f32;
+        summed += harmonic_strength * (time * harmonic).sin();
+    }
+    summed
+}
+
+// Add 5 even harmonics to the signal at a strength
+fn even_saturation(signal: f32, harmonic_strength: f32) -> f32 {
+    let num_harmonics: usize = 5;
+    let time = signal;
+    let mut summed = time;
+    
+    for j in 1..=num_harmonics {
+        let harmonic = 2.0 * j as f32;
+        summed += harmonic_strength * (time * harmonic).sin();
+    }
+    summed
+}
+
+// Add saturation to sub 800hz signal
+fn low_end_drive(sample_rate: f32, signal: f32, threshold: f32, drive: f32) -> f32 {
+    const MAX_FREQUENCY: f32 = 800.0;
+    let mut result = signal;
+
+    // Calculate the Nyquist frequency (half of the sample rate)
+    let nyquist_frequency = sample_rate / 2.0;
+
+    // Calculate the frequency in Hz of the given signal
+    let frequency = nyquist_frequency * result;
+
+    // Check if the frequency is below the maximum frequency or the signal is above the threshold
+    if frequency < MAX_FREQUENCY && result.abs() > threshold {
+        let saturated_signal = result * drive;
+        
+        // Apply saturation to the signal
+        if saturated_signal > 1.0 {
+            result = 1.0;
+        } else if saturated_signal < -1.0 {
+            result = -1.0;
+        }
+    }
+    result
+}
+
+// Add soft compressed candle saturation idea to signal
+fn candle_saturation(signal: f32, drive: f32, threshold: f32) -> f32 {
+    let saturation_amount = (signal - threshold).max(0.0) * drive;
+    let compressed_saturation = saturation_amount / (1.0 + saturation_amount.abs());
+    let saturated_signal = signal + compressed_saturation;
+    saturated_signal
+}
+
 // "Leaf" Saturation designed by Ardura
 fn leaf_saturation(input_signal: f32, threshold: f32, drive: f32) -> f32 {
     let range = 6.0;
@@ -215,6 +284,7 @@ pub struct Console {
     drive: f32,
     console_type: crate::duro_process::ConsoleMode,
     sample_rate: f32,
+    duro_array: [f32; 12],
     leaf_array: [f32; 20],
     vine_array: [f32; 21],
     neve_array: [f32; 34],
@@ -235,6 +305,7 @@ impl Console {
             drive: 0.0,
             console_type: crate::duro_process::ConsoleMode::BYPASS,
             sample_rate,
+            duro_array: [0.0; 12],
             leaf_array: [0.0; 20],
             vine_array: [0.0; 21],
             neve_array: [0.0; 34],
@@ -262,7 +333,40 @@ impl Console {
             // Do nothing
             consoled_sample = sample;
         }
-        // Airwindows inspired console jank
+        // Airwindows inspired console jank creating some console model
+        else if console_type == crate::duro_process::ConsoleMode::DURO
+        {
+            let mut temp_sample = sample;
+
+            self.duro_array[11] = self.duro_array[10];
+            self.duro_array[10] = self.duro_array[9];
+            self.duro_array[9] = self.duro_array[8];
+            self.duro_array[8] = self.duro_array[7];
+            self.duro_array[7] = self.duro_array[6];
+            self.duro_array[6] = self.duro_array[5];
+            self.duro_array[5] = self.duro_array[4];
+            self.duro_array[4] = self.duro_array[3];
+            self.duro_array[3] = self.duro_array[2];
+            self.duro_array[2] = self.duro_array[1];
+            self.duro_array[1] = self.duro_array[0];
+            self.duro_array[0] = temp_sample * self.drive;
+            
+            // Transfer function Direct form? - left rotated ascii num rage,43121,12257 then +- rand
+            temp_sample += self.duro_array[1] * (0.12463 + 0.0009082*(self.duro_array[1].abs()));
+            temp_sample -= self.duro_array[2] * (0.24631 + 0.0007892*(self.duro_array[2].abs()));
+            temp_sample += self.duro_array[3] * (0.46312 - 0.0007984*(self.duro_array[3].abs()));
+            temp_sample += self.duro_array[4] * (0.63124 + 0.0008833*(self.duro_array[4].abs()));
+            temp_sample -= self.duro_array[5] * (0.31246 + 0.0007061*(self.duro_array[5].abs()));
+            temp_sample += self.duro_array[6] *  (0.43121 - 0.0008605*(self.duro_array[6].abs()));
+            temp_sample -= self.duro_array[7] *  (0.31214 + 0.0008056*(self.duro_array[7].abs()));
+            temp_sample += self.duro_array[8] *  (0.12143 + 0.0007117*(self.duro_array[8].abs()));
+            temp_sample -= self.duro_array[9] *  (0.21431 + 0.0006775*(self.duro_array[9].abs()));
+            temp_sample += self.duro_array[10] * (0.14312 + 0.0008237*(self.duro_array[10].abs()));
+            temp_sample -= self.duro_array[11] * (0.12257 + 0.0008422*(self.duro_array[11].abs()));
+
+            consoled_sample = temp_sample;
+        }
+        // Airwindows inspired console jank creating random console
         else if console_type == crate::duro_process::ConsoleMode::LEAF
         {
             let mut temp_sample = sample;
@@ -582,8 +686,6 @@ impl Console {
 			temp_sample += self.vine_array[20] * (0.0172523541136474  - (0.000399899365529506*(self.vine_array[20].abs())));
 
             // Recover some volume lost
-            //consoled_sample *= util::db_to_gain(14.0);
-
             consoled_sample = temp_sample;
         }
 
@@ -593,6 +695,14 @@ impl Console {
             SaturationModeEnum::NONESAT => return consoled_sample,
             // adding even and odd harmonics
             SaturationModeEnum::TAPESAT => return tape_saturation(consoled_sample, self.drive, self.threshold),
+            // Add 5 odd harmonics at drive strength
+            SaturationModeEnum::ODDHARMONICS => return odd_saturation(consoled_sample, self.drive),
+            // Add 5 even harmonics at drive strength
+            SaturationModeEnum::ODDHARMONICS => return even_saturation(consoled_sample, self.drive),
+            // Add saturation under 800hz with drive and threshold
+            SaturationModeEnum::LOWENDDRIVE => return low_end_drive(self.sample_rate, consoled_sample, self.threshold, self.drive),
+            // Candle Saturation through soft compressor added to signal
+            SaturationModeEnum::CANDLE => return candle_saturation(consoled_sample, self.drive, self.threshold),
             // Hardclipped mix with original
             SaturationModeEnum::DIGITAL => return digital_saturation(consoled_sample, self.threshold, self.drive),
             // Chebyshev polynomial saturation based off the symmetrical saturation research - pretending to be tape

@@ -1,10 +1,12 @@
 mod ui_knob;
+mod db_meter;
 use atomic_float::AtomicF32;
 use duro_process::{Console, SaturationModeEnum};
 use nih_plug::{prelude::*};
-use nih_plug_egui::{create_egui_editor, egui::{self, mutex::{Mutex}, plot::{Line, PlotPoints, HLine}, Color32, Stroke, Rect, Rounding, pos2}, widgets, EguiState};
+use nih_plug_egui::{create_egui_editor, egui::{self, mutex::{Mutex}, plot::{Line, PlotPoints, HLine}, Color32, Stroke, Rect, Rounding, pos2, RichText, FontId, Pos2}, widgets, EguiState};
 use crate::ui_knob::{ArcKnob, TextSlider};
-use std::{sync::{Arc, atomic::{Ordering}}, fmt::format};
+use crate::db_meter::DBMeter;
+use std::{sync::{Arc, atomic::{Ordering}}, fmt::format, ops::RangeInclusive};
 mod duro_process;
 
 /**************************************************
@@ -14,11 +16,16 @@ mod duro_process;
  * ************************************************/
 
 // GUI Colors
- const LIGHTTEAL: Color32 = Color32::from_rgb(142, 202, 230);
- const TEAL: Color32 = Color32::from_rgb(33, 158, 188);
- const DARKTEAL: Color32 = Color32::from_rgb(2, 48, 71);
- const MACARONI: Color32 = Color32::from_rgb(255, 183, 3);
- const ORANGE: Color32 = Color32::from_rgb(251, 133, 0);
+const LIGHTTEAL: Color32 = Color32::from_rgb(142, 202, 230);
+const TEAL: Color32 = Color32::from_rgb(33, 158, 188);
+const METERBACKGROUND: Color32 = Color32::DARK_GRAY;
+const DARKTEAL: Color32 = Color32::from_rgb(2, 48, 71);
+const MACARONI: Color32 = Color32::from_rgb(255, 183, 3);
+const ORANGE: Color32 = Color32::from_rgb(251, 133, 0);
+
+// Plugin sizing
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 180;
 
 /// The time it takes for the peak meter to decay by 12 dB after switching to complete silence.
 const PEAK_METER_DECAY_MS: f64 = 100.0;
@@ -81,7 +88,7 @@ impl Default for Gain {
 impl Default for GainParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(800, 160),
+            editor_state: EguiState::from_size(WIDTH, HEIGHT),
 
             // Input gain dB parameter (free as in unrestricted nums)
             free_gain: FloatParam::new(
@@ -217,53 +224,101 @@ impl Plugin for Gain {
                         style_var.visuals.widgets.noninteractive.bg_fill = Color32::RED;
 
                         // Trying to draw background as rect
-                        ui.painter().rect_filled(Rect::EVERYTHING, Rounding::none(), DARKTEAL);
+                        ui.painter().rect_filled(
+                            Rect::from_x_y_ranges(
+                                RangeInclusive::new(0.0, WIDTH as f32), 
+                                RangeInclusive::new(0.0, HEIGHT as f32)), 
+                            Rounding::from(16.0), DARKTEAL);
+
+                        // Screws for that vintage look
+                        let screw_space = 10.0;
+                        ui.painter().circle_filled(Pos2::new(screw_space,screw_space), 4.0, Color32::DARK_GRAY);
+                        ui.painter().circle_filled(Pos2::new(screw_space,HEIGHT as f32 - screw_space), 4.0, Color32::DARK_GRAY);
+                        ui.painter().circle_filled(Pos2::new(WIDTH as f32 - screw_space,screw_space), 4.0, Color32::DARK_GRAY);
+                        ui.painter().circle_filled(Pos2::new(WIDTH as f32 - screw_space,HEIGHT as f32 - screw_space), 4.0, Color32::DARK_GRAY);
 
                         ui.set_style(style_var);
 
                         // GUI Structure
-                        ui.horizontal(|ui| {
-                            let mut gain_knob = ui_knob::ArcKnob::for_param(&params.free_gain, setter, 40.0);
-                            gain_knob.preset_style(ui_knob::KnobStyle::SmallTogether);
-                            gain_knob.set_fill_color(Color32::GREEN);
-                            gain_knob.set_line_color(Color32::LIGHT_GRAY);
-                            ui.add(gain_knob);
+                        ui.vertical(|ui| {
+                            // Spacing :)
+                            ui.label(RichText::new("    Duro Console").font(FontId::proportional(14.0)).color(LIGHTTEAL)).on_hover_text("by Ardura!");
 
-                            let mut sat_type_knob = ui_knob::ArcKnob::for_param(&params.sat_type, setter, 40.0);
-                            sat_type_knob.preset_style(ui_knob::KnobStyle::MediumThin);
-                            sat_type_knob.set_fill_color(Color32::GOLD);
-                            sat_type_knob.set_line_color(Color32::RED);
-                            ui.add(sat_type_knob);
+                            // Peak Meters
+                            let in_meter = util::gain_to_db(in_meter.load(std::sync::atomic::Ordering::Relaxed));
+                            let in_meter_text = if in_meter > util::MINUS_INFINITY_DB {
+                                format!("{in_meter:.1} dBFS Input")
+                            } else {
+                                String::from("-inf dBFS Input")
+                            };
+                            let in_meter_normalized = (in_meter + 60.0) / 60.0;
+                            ui.allocate_space(egui::Vec2::splat(2.0));
+                            let mut in_meter_obj = db_meter::DBMeter::new(in_meter_normalized).text(in_meter_text);
+                            in_meter_obj.set_background_color(METERBACKGROUND);
+                            in_meter_obj.set_bar_color(MACARONI);
+                            in_meter_obj.set_border_color(Color32::BLACK);
+                            ui.add(in_meter_obj);
 
-                            let mut threshold_knob = ui_knob::ArcKnob::for_param(&params.threshold, setter, 40.0);
-                            threshold_knob.preset_style(ui_knob::KnobStyle::LargeMedium);
-                            threshold_knob.set_fill_color(Color32::WHITE);
-                            threshold_knob.set_line_color(Color32::YELLOW);
-                            ui.add(threshold_knob);
+                            let out_meter = util::gain_to_db(out_meter.load(std::sync::atomic::Ordering::Relaxed));
+                            let out_meter_text = if out_meter > util::MINUS_INFINITY_DB {
+                                format!("{out_meter:.1} dBFS Output")
+                            } else {
+                                String::from("-inf dBFS Output")
+                            };
+                            let out_meter_normalized = (out_meter + 60.0) / 60.0;
+                            ui.allocate_space(egui::Vec2::splat(2.0));
+                            let mut out_meter_obj = db_meter::DBMeter::new(out_meter_normalized).text(out_meter_text);
+                            out_meter_obj.set_background_color(METERBACKGROUND);
+                            out_meter_obj.set_bar_color(MACARONI);
+                            out_meter_obj.set_border_color(Color32::BLACK);
+                            ui.add(out_meter_obj);
 
-                            let mut drive_knob = ui_knob::ArcKnob::for_param(&params.drive, setter, 36.0);
-                            drive_knob.preset_style(ui_knob::KnobStyle::SmallLarge);
-                            drive_knob.set_fill_color(MACARONI);
-                            drive_knob.set_line_color(ORANGE);
-                            ui.add(drive_knob);
+                            ui.horizontal(|ui| {
+                                let knob_size = 44.0;
 
-                            let mut console_knob = ui_knob::ArcKnob::for_param(&params.console_type, setter, 30.0);
-                            console_knob.preset_style(ui_knob::KnobStyle::SmallMedium);
-                            console_knob.set_fill_color(TEAL);
-                            console_knob.set_line_color(Color32::LIGHT_GREEN);
-                            ui.add(console_knob);
+                                let mut gain_knob = ui_knob::ArcKnob::for_param(&params.free_gain, setter, knob_size);
+                                gain_knob.preset_style(ui_knob::KnobStyle::SmallTogether);
+                                gain_knob.set_fill_color(TEAL);
+                                gain_knob.set_line_color(LIGHTTEAL);
+                                ui.add(gain_knob);
 
-                            let mut output_knob = ui_knob::ArcKnob::for_param(&params.output_gain, setter, 26.0);
-                            output_knob.preset_style(ui_knob::KnobStyle::SmallSmallOutline);
-                            ui.add(output_knob);
+                                let mut sat_type_knob = ui_knob::ArcKnob::for_param(&params.sat_type, setter, knob_size);
+                                sat_type_knob.preset_style(ui_knob::KnobStyle::SmallTogether);
+                                sat_type_knob.set_fill_color(MACARONI);
+                                sat_type_knob.set_line_color(ORANGE);
+                                ui.add(sat_type_knob);
 
-                            let mut dry_wet_knob = ui_knob::ArcKnob::for_param(&params.dry_wet, setter, 20.0);
-                            dry_wet_knob.preset_style(ui_knob::KnobStyle::SmallMedium);
-                            dry_wet_knob.set_fill_color(TEAL);
-                            dry_wet_knob.set_line_color(Color32::LIGHT_GREEN);
-                            ui.add(dry_wet_knob);
-                            }
-                        )
+                                let mut threshold_knob = ui_knob::ArcKnob::for_param(&params.threshold, setter, knob_size);
+                                threshold_knob.preset_style(ui_knob::KnobStyle::SmallMedium);
+                                threshold_knob.set_fill_color(MACARONI);
+                                threshold_knob.set_line_color(ORANGE);
+                                ui.add(threshold_knob);
+    
+                                let mut drive_knob = ui_knob::ArcKnob::for_param(&params.drive, setter, knob_size);
+                                drive_knob.preset_style(ui_knob::KnobStyle::SmallMedium);
+                                drive_knob.set_fill_color(MACARONI);
+                                drive_knob.set_line_color(ORANGE);
+                                ui.add(drive_knob);
+
+                                let mut console_knob = ui_knob::ArcKnob::for_param(&params.console_type, setter, knob_size);
+                                console_knob.preset_style(ui_knob::KnobStyle::SmallTogether);
+                                console_knob.set_fill_color(MACARONI);
+                                console_knob.set_line_color(ORANGE);
+                                ui.add(console_knob);
+    
+                                let mut output_knob = ui_knob::ArcKnob::for_param(&params.output_gain, setter, knob_size);
+                                output_knob.preset_style(ui_knob::KnobStyle::SmallTogether);
+                                output_knob.set_fill_color(TEAL);
+                                output_knob.set_line_color(LIGHTTEAL);
+                                ui.add(output_knob);
+   
+                                let mut dry_wet_knob = ui_knob::ArcKnob::for_param(&params.dry_wet, setter, knob_size);
+                                dry_wet_knob.preset_style(ui_knob::KnobStyle::SmallMedium);
+                                dry_wet_knob.set_fill_color(TEAL);
+                                dry_wet_knob.set_line_color(LIGHTTEAL);
+                                ui.add(dry_wet_knob);
+                            });
+                        });
                     });
                 }
             )
@@ -331,12 +386,6 @@ impl Plugin for Gain {
                 *sample = processed_sample;
                 out_amplitude += processed_sample;
             }
-
-            
-
-            //win_dbg_logger::output_debug_string(format!("in_amplitude is {}, compressed_sample is {}, reduction_amplitude is {}, out_amplitude is {}\n", in_amplitude, compressed_sample, reduction_amplitude, out_amplitude).as_str());
-            //win_dbg_logger::output_debug_string("--------------------------------------------\n");
-
 
             // To save resources, a plugin can (and probably should!) only perform expensive
             // calculations that are only displayed on the GUI while the GUI is open
