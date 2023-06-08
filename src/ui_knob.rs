@@ -5,7 +5,7 @@
 
 use std::{f32::consts::TAU, ops::{Add, Sub, Mul}};
 
-use nih_plug::prelude::{Param, ParamSetter};
+use nih_plug::prelude::{Param, ParamSetter, Enum};
 use nih_plug_egui::egui::{
     epaint::{PathShape, CircleShape}, pos2, Align2, Color32, FontId, Id, Pos2, Rect, Response, Rgba, Sense,
     Shape, Stroke, Ui, Widget, self, Vec2, vec2,
@@ -71,6 +71,16 @@ pub struct ArcKnob<'a, P: Param> {
     outline: bool,
 }
 
+pub enum KnobStyle {
+    // Knob_line
+    SmallTogether,
+    MediumThin,
+    LargeMedium,
+    SmallLarge,
+    SmallMedium,
+    SmallSmallOutline,
+}
+
 #[allow(dead_code)]
 impl<'a, P: Param> ArcKnob<'a, P> {
     pub fn for_param(param: &'a P, param_setter: &'a ParamSetter, radius: f32) -> Self {
@@ -126,6 +136,43 @@ impl<'a, P: Param> ArcKnob<'a, P> {
     // Specify distance between center and arc
     pub fn set_center_to_line_space(&mut self, new_width: f32) {
         self.center_to_line_space = new_width;
+    }
+
+    pub fn preset_style(&mut self, style_id: KnobStyle)
+    {
+        match style_id {
+            KnobStyle::SmallTogether => {
+                self.center_size = 10.0;
+                self.line_width = 20.0;
+                self.center_to_line_space = 0.0;
+            }
+            KnobStyle::MediumThin => {
+                self.center_size = 20.0;
+                self.line_width = 5.0;
+                self.center_to_line_space = 10.0;
+            }
+            KnobStyle::LargeMedium => {
+                self.center_size = 30.0;
+                self.line_width = 10.0;
+                self.center_to_line_space = 5.0;
+            }
+            KnobStyle::SmallLarge => {
+                self.center_size = 5.0;
+                self.line_width = 30.0;
+                self.center_to_line_space = 20.0;
+            }
+            KnobStyle::SmallMedium => {
+                self.center_size = 10.0;
+                self.line_width = 15.0;
+                self.center_to_line_space = 24.0;
+            }
+            KnobStyle::SmallSmallOutline => {
+                self.center_size = 10.0;
+                self.line_width = 10.0;
+                self.center_to_line_space = 10.0;
+                self.outline = true;
+            }
+        }
     }
 }
 
