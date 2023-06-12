@@ -46,6 +46,12 @@ impl<'a, P: Param> SliderRegion<'a, P> {
                 .set_parameter_normalized(self.param, *value);
         }
 
+        // Reset on doubleclick
+        if response.double_clicked() {
+            self.param_setter
+                .set_parameter_normalized(self.param, self.param.default_normalized_value());
+        }
+
         if response.drag_released() {
             self.param_setter.end_set_parameter(self.param);
         }
@@ -70,6 +76,7 @@ pub struct ArcKnob<'a, P: Param> {
     outline: bool,
 }
 
+#[allow(dead_code)]
 pub enum KnobStyle {
     // Knob_line
     SmallTogether,

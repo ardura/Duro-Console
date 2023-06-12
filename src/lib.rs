@@ -1,12 +1,10 @@
 mod ui_knob;
 mod db_meter;
 use atomic_float::AtomicF32;
-use duro_process::{Console, SaturationModeEnum};
+use duro_process::{Console};
 use nih_plug::{prelude::*};
-use nih_plug_egui::{create_egui_editor, egui::{self, mutex::{Mutex}, plot::{Line, PlotPoints, HLine}, Color32, Stroke, Rect, Rounding, pos2, RichText, FontId, Pos2}, widgets, EguiState};
-use crate::ui_knob::{ArcKnob, TextSlider};
-use crate::db_meter::DBMeter;
-use std::{sync::{Arc, atomic::{Ordering}}, fmt::format, ops::RangeInclusive};
+use nih_plug_egui::{create_egui_editor, egui::{self, Color32, Rect, Rounding, RichText, FontId, Pos2}, EguiState};
+use std::{sync::{Arc}, ops::RangeInclusive};
 mod duro_process;
 
 /**************************************************
@@ -196,7 +194,7 @@ impl Plugin for Gain {
     }
 
     fn editor(&self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        let mut params = self.params.clone();
+        let params = self.params.clone();
         let in_meter = self.in_meter.clone();
         let out_meter = self.out_meter.clone();
         create_egui_editor(

@@ -3,6 +3,8 @@
 
 use nih_plug_egui::egui::{Ui, Widget, Stroke, Color32, WidgetText, Response, vec2, Sense, NumExt, Rect, lerp, Shape, Pos2, Vec2, TextStyle};
 
+// TODO - let percentage work?
+#[allow(dead_code)]
 enum DBMeterText {
     Custom(WidgetText),
     Percentage,
@@ -19,6 +21,7 @@ pub struct DBMeter {
     background_color: Color32,
 }
 
+#[allow(dead_code)]
 impl DBMeter {
     /// Progress in the `[0, 1]` range, where `1` means "completed".
     pub fn new(level: f32) -> Self {
@@ -62,6 +65,7 @@ impl DBMeter {
 }
 
 impl Widget for DBMeter {
+    #[allow(unused_variables)]
     fn ui(self, ui: &mut Ui) -> Response {
         let DBMeter {
             level,

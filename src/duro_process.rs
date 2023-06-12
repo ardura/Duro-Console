@@ -27,10 +27,8 @@ pub enum SaturationModeEnum {
     TAPESAT,
     #[name = "Odd Harmonics"]
     ODDHARMONICS,
-    #[name = "Even Harmonics"]
-    EVENHARMONICS,
-    #[name = "Low End Drive"]
-    LOWENDDRIVE,
+    #[name = "Third Harmonics"]
+    THIRDHARM,
     #[name = "Candle"]
     CANDLE,
     #[name = "Digital Clip"]
@@ -155,54 +153,42 @@ fn golden_cubic(sample: f32, threshold: f32, drive: f32) -> f32
 }
 
 // Add 5 odd harmonics to the signal at a strength
-fn odd_saturation(signal: f32, harmonic_strength: f32) -> f32 {
+fn odd_saturation_with_threshold(signal: f32, harmonic_strength: f32, threshold: f32) -> f32 {
     let num_harmonics: usize = 5;
-    let time = signal;
-    let mut summed = time;
-    
+    let mut summed = signal;
+
     for j in 1..=num_harmonics {
         let harmonic = (2 * j - 1) as f32;
-        summed += harmonic_strength * (time * harmonic).sin();
-    }
-    summed
-}
+        let harmonic_component = harmonic_strength * (signal * harmonic).sin();
 
-// Add 5 even harmonics to the signal at a strength
-fn even_saturation(signal: f32, harmonic_strength: f32) -> f32 {
-    let num_harmonics: usize = 5;
-    let time = signal;
-    let mut summed = time;
-    
-    for j in 1..=num_harmonics {
-        let harmonic = 2.0 * j as f32;
-        summed += harmonic_strength * (time * harmonic).sin();
-    }
-    summed
-}
-
-// Add saturation to sub 800hz signal
-fn low_end_drive(sample_rate: f32, signal: f32, threshold: f32, drive: f32) -> f32 {
-    const MAX_FREQUENCY: f32 = 800.0;
-    let mut result = signal;
-
-    // Calculate the Nyquist frequency (half of the sample rate)
-    let nyquist_frequency = sample_rate / 2.0;
-
-    // Calculate the frequency in Hz of the given signal
-    let frequency = nyquist_frequency * result;
-
-    // Check if the frequency is below the maximum frequency or the signal is above the threshold
-    if frequency < MAX_FREQUENCY && result.abs() > threshold {
-        let saturated_signal = result * drive;
-        
-        // Apply saturation to the signal
-        if saturated_signal > 1.0 {
-            result = 1.0;
-        } else if saturated_signal < -1.0 {
-            result = -1.0;
+        if harmonic_component.abs() > threshold {
+            // Calculate the reduction factor based on the threshold
+            let reduction_factor = threshold / harmonic_component.abs();
+            let reduced_harmonic_component = harmonic_component * reduction_factor;
+            summed += reduced_harmonic_component;
         }
     }
-    result
+    summed
+}
+
+// Add third harmonics to signal
+fn add_third_harmonics(signal: f32, harmonic_strength: f32, threshold: f32) -> f32 {
+    let num_harmonics: usize = 10;
+    let mut summed = signal;
+
+    for j in 1..=num_harmonics {
+        let harmonic = 3.0 * j as f32;
+        let harmonic_component = harmonic_strength * (signal * harmonic).sin();
+
+        if harmonic_component.abs() > threshold {
+            // Calculate the reduction factor based on the threshold
+            let reduction_factor = threshold / harmonic_component.abs();
+            let reduced_harmonic_component = harmonic_component * reduction_factor;
+            summed += reduced_harmonic_component;
+        }
+    }
+
+    summed
 }
 
 // Add soft compressed candle saturation idea to signal
@@ -227,20 +213,21 @@ fn leaf_saturation(input_signal: f32, threshold: f32, drive: f32) -> f32 {
     (threshold + (1.0 - threshold) * curve) * y
 }
 
-// Transformer saturation based on threshold and drive
 fn transformer_saturation(sample: f32, threshold: f32, drive: f32) -> f32 {
-    // take the inverse of drive
     let shape = 2.0 - (drive * 2.0).min(2.0).max(0.0);
 
-
-    // Calculate the output gain based on the input level and the threshold, with waveshaping
-    let output_gain = if sample.abs() < threshold {
+    let input_level = sample.abs();
+    let output_gain = if input_level < threshold {
         1.0
     } else {
-        let gain_reduction = (sample.abs() - threshold) / (1.0 - threshold);
+        let gain_reduction = (input_level - threshold) / (1.0 - threshold);
         let input_gain = 1.0 + (drive - 1.0) * gain_reduction.powf(5.0);
-        let shaped_gain = input_gain.tanh() / shape;
-        shaped_gain.max(0.0).min(drive)
+        let shaped_gain = (input_gain.tanh() / shape).max(0.0).min(drive);
+
+        // Adjust the gain based on the input level
+        let reduced_gain = shaped_gain * (1.0 - input_level);
+
+        reduced_gain
     };
 
     // Apply the gain to the input signal and saturate it
@@ -354,15 +341,15 @@ impl Console {
             // Transfer function Direct form? - left rotated ascii num rage,43121,12257 then +- rand
             temp_sample += self.duro_array[1] * (0.12463 + 0.0009082*(self.duro_array[1].abs()));
             temp_sample -= self.duro_array[2] * (0.24631 + 0.0007892*(self.duro_array[2].abs()));
-            temp_sample += self.duro_array[3] * (0.46312 - 0.0007984*(self.duro_array[3].abs()));
+            temp_sample += self.duro_array[3] * (0.46312 - 0.0004984*(self.duro_array[3].abs()));
             temp_sample += self.duro_array[4] * (0.63124 + 0.0008833*(self.duro_array[4].abs()));
             temp_sample -= self.duro_array[5] * (0.31246 + 0.0007061*(self.duro_array[5].abs()));
-            temp_sample += self.duro_array[6] *  (0.43121 - 0.0008605*(self.duro_array[6].abs()));
+            temp_sample += self.duro_array[6] *  (0.43121 - 0.0003605*(self.duro_array[6].abs()));
             temp_sample -= self.duro_array[7] *  (0.31214 + 0.0008056*(self.duro_array[7].abs()));
-            temp_sample += self.duro_array[8] *  (0.12143 + 0.0007117*(self.duro_array[8].abs()));
-            temp_sample -= self.duro_array[9] *  (0.21431 + 0.0006775*(self.duro_array[9].abs()));
-            temp_sample += self.duro_array[10] * (0.14312 + 0.0008237*(self.duro_array[10].abs()));
-            temp_sample -= self.duro_array[11] * (0.12257 + 0.0008422*(self.duro_array[11].abs()));
+            temp_sample += self.duro_array[8] *  (0.12143 + 0.0006117*(self.duro_array[8].abs()));
+            temp_sample -= self.duro_array[9] *  (0.21431 + 0.0005775*(self.duro_array[9].abs()));
+            temp_sample += self.duro_array[10] * (0.14312 + 0.0002237*(self.duro_array[10].abs()));
+            temp_sample -= self.duro_array[11] * (0.12257 + 0.0005422*(self.duro_array[11].abs()));
 
             consoled_sample = temp_sample;
         }
@@ -696,11 +683,9 @@ impl Console {
             // adding even and odd harmonics
             SaturationModeEnum::TAPESAT => return tape_saturation(consoled_sample, self.drive, self.threshold),
             // Add 5 odd harmonics at drive strength
-            SaturationModeEnum::ODDHARMONICS => return odd_saturation(consoled_sample, self.drive),
+            SaturationModeEnum::ODDHARMONICS => return odd_saturation_with_threshold(consoled_sample, self.drive, self.threshold),
             // Add 5 even harmonics at drive strength
-            SaturationModeEnum::ODDHARMONICS => return even_saturation(consoled_sample, self.drive),
-            // Add saturation under 800hz with drive and threshold
-            SaturationModeEnum::LOWENDDRIVE => return low_end_drive(self.sample_rate, consoled_sample, self.threshold, self.drive),
+            SaturationModeEnum::THIRDHARM => return add_third_harmonics(consoled_sample, self.drive, self.threshold),
             // Candle Saturation through soft compressor added to signal
             SaturationModeEnum::CANDLE => return candle_saturation(consoled_sample, self.drive, self.threshold),
             // Hardclipped mix with original
