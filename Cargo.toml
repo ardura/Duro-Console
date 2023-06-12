@@ -1,5 +1,5 @@
 [package]
-name = "duro_console"
+name = "Duro_Console"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ardura <azviscarra@gmail.com>"]

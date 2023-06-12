@@ -5,18 +5,18 @@ use nih_plug::{util::{self}, prelude::Enum};
 pub enum ConsoleMode {
     #[name = "Bypass"]
     BYPASS,
-    #[name = "Leaf Console"]
-    LEAF,
-    #[name = "Vine Console"]
-    VINE,
-    #[name = "Duro Console"]
-    DURO,
     #[name = "Neve Inspired"]
     NEVE,
     #[name = "API Inspired"]
     API,
     #[name = "Precision Inspired"]
     PRECISION,
+    #[name = "Leaf Console"]
+    LEAF,
+    #[name = "Vine Console"]
+    VINE,
+    #[name = "Duro Console"]
+    DURO,
 }
 
 #[derive(Enum, PartialEq, Eq, Debug, Copy, Clone)]
@@ -25,22 +25,22 @@ pub enum SaturationModeEnum {
     NONESAT,
     #[name = "Tape Saturation"]
     TAPESAT,
-    #[name = "Odd Harmonics"]
-    ODDHARMONICS,
-    #[name = "Third Harmonics"]
-    THIRDHARM,
     #[name = "Candle"]
     CANDLE,
-    #[name = "Digital Clip"]
-    DIGITAL,
     #[name = "Chebyshev"]
     CHEBYSHEV,
-    #[name = "Golden Cubic"]
-    GOLDENCUBIC,
     #[name = "\"Leaf\""]
     LEAF,
+    #[name = "Digital Clip"]
+    DIGITAL,
+    #[name = "Golden Cubic"]
+    GOLDENCUBIC,
     #[name = "Transformer"]
     TRANSFORMER,
+    #[name = "Odd Harmonics"]
+    ODDHARMONICS,
+    #[name = "Fourth Harmonics"]
+    FORTHHARM,
 }
 
 /**************************************************
@@ -171,13 +171,13 @@ fn odd_saturation_with_threshold(signal: f32, harmonic_strength: f32, threshold:
     summed
 }
 
-// Add third harmonics to signal
-fn add_third_harmonics(signal: f32, harmonic_strength: f32, threshold: f32) -> f32 {
+// Add X harmonics to signal
+fn add_x_harmonics(signal: f32, harmonic_strength: f32, threshold: f32, harmonic_num: i32) -> f32 {
     let num_harmonics: usize = 10;
     let mut summed = signal;
 
     for j in 1..=num_harmonics {
-        let harmonic = 3.0 * j as f32;
+        let harmonic = harmonic_num as f32 * j as f32;
         let harmonic_component = harmonic_strength * (signal * harmonic).sin();
 
         if harmonic_component.abs() > threshold {
@@ -685,7 +685,7 @@ impl Console {
             // Add 5 odd harmonics at drive strength
             SaturationModeEnum::ODDHARMONICS => return odd_saturation_with_threshold(consoled_sample, self.drive, self.threshold),
             // Add 5 even harmonics at drive strength
-            SaturationModeEnum::THIRDHARM => return add_third_harmonics(consoled_sample, self.drive, self.threshold),
+            SaturationModeEnum::FORTHHARM => return add_x_harmonics(consoled_sample, self.drive, self.threshold, 4),
             // Candle Saturation through soft compressor added to signal
             SaturationModeEnum::CANDLE => return candle_saturation(consoled_sample, self.drive, self.threshold),
             // Hardclipped mix with original
