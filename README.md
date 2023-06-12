@@ -2,7 +2,8 @@
 ## Description
 This is a mixture of a saturator and console “emulation” to do some subtle or not-so-subtle processing to audio in a few flavors I really like.
 
-![image](https://github.com/ardura/Duro-Console/assets/31751444/6319ea61-4317-4211-80e6-03f84c91016e)
+![image](https://github.com/ardura/Duro-Console/assets/31751444/3d2bf6ea-1b47-4192-9a53-ff5823aca5aa)
+
 
 ## Signal Path
 1. Input gain
