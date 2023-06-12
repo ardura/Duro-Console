@@ -1,13 +1,12 @@
-// ui_knob.rs by a2aaron as part of nyasynth
+// Ardura 2023 - ui_knob.rs - egui + nih-plug parameter widget with customization
+//  this ui_knob.rs is built off a2aaron's knob base as part of nyasynth
 // https://github.com/a2aaron/nyasynth/blob/canon/src/ui_knob.rs
-
-// Updated by Ardura to work with egui layout
 
 use std::{f32::consts::TAU, ops::{Add, Sub, Mul}};
 
 use nih_plug::prelude::{Param, ParamSetter};
 use nih_plug_egui::egui::{
-    epaint::{PathShape, TextShape}, pos2, Align2, Color32, FontId, Id, Pos2, Rect, Response, Rgba, Sense,
+    epaint::{PathShape, CircleShape}, pos2, Align2, Color32, FontId, Id, Pos2, Rect, Response, Rgba, Sense,
     Shape, Stroke, Ui, Widget, self, Vec2,
 };
 use once_cell::sync::Lazy;
@@ -47,6 +46,12 @@ impl<'a, P: Param> SliderRegion<'a, P> {
                 .set_parameter_normalized(self.param, *value);
         }
 
+        // Reset on doubleclick
+        if response.double_clicked() {
+            self.param_setter
+                .set_parameter_normalized(self.param, self.param.default_normalized_value());
+        }
+
         if response.drag_released() {
             self.param_setter.end_set_parameter(self.param);
         }
@@ -60,48 +65,191 @@ impl<'a, P: Param> SliderRegion<'a, P> {
 
 pub struct ArcKnob<'a, P: Param> {
     slider_region: SliderRegion<'a, P>,
-    radius_scale: f32,
-    //center: Pos2,
+    radius: f32,
+    line_color: Color32,
+    fill_color: Color32,
+    center_size: f32,
+    line_width: f32,
+    center_to_line_space: f32,
+    hover_text: bool,
+    label_text: String,
+    outline: bool,
 }
 
+#[allow(dead_code)]
+pub enum KnobStyle {
+    // Knob_line
+    SmallTogether,
+    MediumThin,
+    LargeMedium,
+    SmallLarge,
+    SmallMedium,
+    SmallSmallOutline,
+}
+
+#[allow(dead_code)]
 impl<'a, P: Param> ArcKnob<'a, P> {
-    pub fn for_param(param: &'a P, param_setter: &'a ParamSetter, radius_scale: f32) -> Self {
+    pub fn for_param(param: &'a P, param_setter: &'a ParamSetter, radius: f32) -> Self {
         ArcKnob {
             slider_region: SliderRegion::new(param, param_setter),
-            radius_scale,
-            //center: pos,
+            radius: radius,
+            line_color: Color32::BLACK,
+            fill_color: Color32::BLACK,
+            center_size: 20.0,
+            line_width: 2.0,
+            center_to_line_space: 0.0,
+            hover_text: false,
+            label_text: String::new(),
+            outline: false,
+        }
+    }
+
+    // Specify outline drawing
+    pub fn use_outline(&mut self, new_bool: bool) {
+        self.outline = new_bool;
+    }
+
+    // Specify showing value when mouse-over
+    pub fn use_hover_text(&mut self, new_bool: bool) {
+        self.hover_text = new_bool;
+    }
+
+    // Specify knob label
+    pub fn set_label(&mut self, new_label: String) {
+        self.label_text = new_label;
+    }
+
+    // Specify line color for knob outside
+    pub fn set_line_color(&mut self, new_color: Color32) {
+        self.line_color = new_color;
+    }
+
+    // Specify fill color for knob
+    pub fn set_fill_color(&mut self, new_color: Color32) {
+        self.fill_color = new_color;
+    }
+
+    // Specify center knob size
+    pub fn set_center_size(&mut self, size: f32) {
+        self.center_size = size;
+    }
+
+    // Specify line width
+    pub fn set_line_width(&mut self, width: f32) {
+        self.line_width = width;
+    }
+
+    // Specify distance between center and arc
+    pub fn set_center_to_line_space(&mut self, new_width: f32) {
+        self.center_to_line_space = new_width;
+    }
+
+    pub fn preset_style(&mut self, style_id: KnobStyle)
+    {
+        // These are all calculated off radius to scale better
+        match style_id {
+            KnobStyle::SmallTogether => {
+                self.center_size = self.radius / 4.0;
+                self.line_width = self.radius / 2.0;
+                self.center_to_line_space = 0.0;
+            }
+            KnobStyle::MediumThin => {
+                self.center_size = self.radius / 2.0;
+                self.line_width = self.radius / 8.0;
+                self.center_to_line_space = self.radius / 4.0;
+            }
+            KnobStyle::LargeMedium => {
+                self.center_size = self.radius / 1.333;
+                self.line_width = self.radius / 4.0;
+                self.center_to_line_space = self.radius / 8.0;
+            }
+            KnobStyle::SmallLarge => {
+                self.center_size = self.radius / 8.0;
+                self.line_width = self.radius / 1.333;
+                self.center_to_line_space = self.radius / 2.0;
+            }
+            KnobStyle::SmallMedium => {
+                self.center_size = self.radius / 4.0;
+                self.line_width = self.radius / 2.666;
+                self.center_to_line_space = self.radius / 1.666;
+            }
+            KnobStyle::SmallSmallOutline => {
+                self.center_size = self.radius / 4.0;
+                self.line_width = self.radius / 4.0;
+                self.center_to_line_space = self.radius / 4.0;
+                self.outline = true;
+            }
         }
     }
 }
 
 impl<'a, P: Param> Widget for ArcKnob<'a, P> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let radius_multiplier = 80.0;
-        let desired_size = egui::vec2(radius_multiplier,radius_multiplier) * self.radius_scale;
+        // Turns into 5 on each side
+        let padding = 10.0;
+
+        // Figure out the size to reserve on screen for widget
+        let desired_size = egui::vec2(padding + self.radius*2.0,padding + self.radius*2.0);
         let response = ui.allocate_response(desired_size, Sense::click_and_drag());
         let value = self.slider_region.handle_response(&ui, &response);
 
-        let painter = ui.painter_at(response.rect);
-        let center = response.rect.center();
+        ui.vertical(|ui| {
+            let painter = ui.painter_at(response.rect);
+            let center = response.rect.center();
 
-        // Draw the arc
-        let stroke_width = 10.0;
-        let radius = self.radius_scale*radius_multiplier - stroke_width - 40.0;
-        let stroke = Stroke::new(stroke_width, Rgba::from_rgb(1.0, 1.0, 0.0));
-        let shape = Shape::Path(PathShape {
-            points: get_arc_points(center, radius, value, 0.03),
-            closed: false,
-            fill: Color32::TRANSPARENT,
-            stroke,
+            // Draw the arc
+            let arc_radius = self.center_size + self.center_to_line_space;
+            let arc_stroke = Stroke::new(self.line_width, self.line_color);
+            let shape = Shape::Path(PathShape {
+                points: get_arc_points(center, arc_radius, value, 0.03),
+                closed: false,
+                fill: Color32::TRANSPARENT,
+                stroke: arc_stroke,
+            });
+            painter.add(shape);
+
+            // Draw the outside ring around the control
+            if self.outline {
+                let outline_stroke = Stroke::new(1.0, self.fill_color);
+                let outline_shape = Shape::Path(PathShape {
+                    points: get_arc_points(center, self.radius + 2.0, 1.0, 0.03),
+                    closed: false,
+                    fill: Color32::TRANSPARENT,
+                    stroke: outline_stroke,
+                });
+                painter.add(outline_shape);
+            }
+
+            //reset stroke here so we only have fill
+            let line_stroke = Stroke::new(0.0, Color32::TRANSPARENT);
+
+            // Center of Knob
+            let circle_shape = Shape::Circle(CircleShape{ center: center, radius: self.center_size, stroke: line_stroke, fill: self.fill_color });
+            painter.add(circle_shape);
+
+            // Hover text of value
+            if self.hover_text {
+                ui.allocate_rect(
+                    Rect::from_center_size(center, Vec2::new(self.radius*2.0, self.radius*2.0)), Sense::hover())
+                        .on_hover_text(self.slider_region.get_string());
+            }
+
+            // Label text from response rect bound
+            let label_pos = Pos2::new(response.rect.center_bottom().x,response.rect.center_bottom().y - padding);
+            if self.label_text.is_empty() {
+                painter.text(label_pos, Align2::CENTER_CENTER, self.slider_region.get_string(), FontId::proportional(12.0), self.line_color);
+                //ui.label(self.slider_region.get_string());
+            }
+            else {
+                painter.text(label_pos, Align2::CENTER_CENTER, self.label_text, FontId::proportional(12.0), self.line_color);
+                //ui.label(self.label_text);
+            }
+            
         });
-        painter.add(shape);
-        // Attempting a label
-        ui.allocate_rect(
-            Rect::from_center_size(center, Vec2::new(radius_multiplier, radius_multiplier)), Sense::hover())
-                .on_hover_text(self.slider_region.get_string());
         response
     }
 }
+
 
 fn get_arc_points(center: Pos2, radius: f32, value: f32, max_arc_distance: f32) -> Vec<Pos2> {
     let start_turns: f32 = 0.625;
@@ -121,13 +269,7 @@ fn get_arc_points(center: Pos2, radius: f32, value: f32, max_arc_distance: f32) 
         .collect()
 }
 
-// Moved make_arc_knob and lerp in this file to reduce dependencies - Ardura
-//pub fn make_arc_knob(ui: &mut Ui, setter: &ParamSetter, param: &impl Param, center: Pos2) {
-pub fn make_arc_knob(ui: &mut Ui, setter: &ParamSetter, param: &impl Param) {
-    let radius_scale = 1.0;
-    ui.add(ArcKnob::for_param(param, setter, radius_scale));
-}
-// Moved make_arc_knob and lerp in this file to reduce dependencies - Ardura
+// Moved lerp to this file to reduce dependencies - Ardura
 pub fn lerp<T>(start: T, end: T, t: f32) -> T
 where
     T: Add<T, Output = T> + Sub<T, Output = T> + Mul<f32, Output = T> + Copy,
